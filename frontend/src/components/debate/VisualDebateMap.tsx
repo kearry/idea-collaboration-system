@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
 import * as d3 from 'd3';
@@ -10,10 +10,10 @@ interface Node extends d3.SimulationNodeDatum {
     type: 'topic' | 'pro' | 'con';
     votes?: number;
     radius?: number;
-    x?: number; // Add x property
-    y?: number; // Add y property
-    fx?: number; // Add fx property
-    fy?: number; // Add fy property
+    x?: number;
+    y?: number;
+    fx?: number;
+    fy?: number;
 }
 
 interface Link extends d3.SimulationLinkDatum<Node> {
@@ -54,7 +54,7 @@ const VisualDebateMap: React.FC = () => {
     }, []);
 
     // Prepare data for D3
-    const prepareGraph = () => {
+    const prepareGraph = useCallback(() => {
         if (!debate) return { nodes: [], links: [] };
 
         // Create center node for the topic
@@ -105,7 +105,7 @@ const VisualDebateMap: React.FC = () => {
         });
 
         return { nodes, links };
-    };
+    }, [debate, darguments]);
 
     // Calculate radius based on votes (min 20, max 40)
     const calculateRadius = (votes: number) => {
@@ -146,7 +146,9 @@ const VisualDebateMap: React.FC = () => {
             )
             .force('charge', d3.forceManyBody().strength(-300))
             .force('center', d3.forceCenter(width / 2, height / 2))
-            .force('collision', d3.forceCollide().radius(d => (d.radius || 30) + 10));
+            .force('collision', d3.forceCollide().radius(function (d) {
+                return ((d as Node).radius || 30) + 10;
+            }));
 
         // Create links
         const link = g.append('g')
@@ -247,7 +249,7 @@ const VisualDebateMap: React.FC = () => {
         return () => {
             simulation.stop();
         };
-    }, [debate, darguments, width, height]);
+    }, [debate, darguments, width, height, prepareGraph]);
 
     // Helper function to truncate text
     const truncateText = (text: string, maxLength: number) => {

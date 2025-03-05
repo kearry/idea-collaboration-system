@@ -1,11 +1,11 @@
 // types/debateTypes.ts
-interface User {
+export interface User {
     id: string;
     username: string;
     profileImage?: string;
 }
 
-interface Argument {
+export interface Argument {
     id: string;
     content: string;
     type: 'pro' | 'con';
@@ -16,7 +16,7 @@ interface Argument {
     createdAt: Date;
 }
 
-interface Debate {
+export interface Debate {
     id: string;
     topic: string;
     description: string;

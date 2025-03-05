@@ -1,7 +1,7 @@
 // App.tsx
 import React, { useEffect } from 'react';
 import { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './store/store';
 import { setUser, logout } from './store/slices/authSlice';
@@ -87,16 +87,32 @@ const App: React.FC = () => {
 // OAuth callback handler component
 const OAuthCallback: React.FC = () => {
     const dispatch = useDispatch();
+    const location = useLocation();
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const handleOAuth = async () => {
-            // Get token from URL params
-            const params = new URLSearchParams(window.location.search);
+            // Get URL parameters
+            const params = new URLSearchParams(location.search);
             const token = params.get('token');
+            const state = params.get('state');
+            const errorMsg = params.get('error');
 
+            // Check for error from OAuth provider
+            if (errorMsg) {
+                setError(`Authentication error: ${errorMsg}`);
+                return;
+            }
+
+            // Check if token exists
             if (!token) {
                 setError('No authentication token received');
+                return;
+            }
+
+            // Validate state parameter to prevent CSRF attacks
+            if (state && !authService.validateOAuthState(state)) {
+                setError('Invalid state parameter, authentication failed');
                 return;
             }
 
@@ -115,7 +131,7 @@ const OAuthCallback: React.FC = () => {
         };
 
         handleOAuth();
-    }, [dispatch]);
+    }, [dispatch, location]);
 
     if (error) {
         return (

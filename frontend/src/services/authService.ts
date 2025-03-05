@@ -67,6 +67,32 @@ const authService = {
             throw new Error('Failed to get user after OAuth login');
         }
         return user;
+    },
+
+    // Initialize GitHub OAuth login
+    initiateGitHubLogin(): void {
+        // GitHub OAuth configuration
+        const clientId = process.env.REACT_APP_GITHUB_CLIENT_ID;
+        const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
+        const scope = encodeURIComponent('user:email');
+
+        // Redirect to GitHub authorization URL
+        const githubAuthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&state=${this.generateRandomState()}`;
+        window.location.href = githubAuthUrl;
+    },
+
+    // Generate random state to prevent CSRF attacks
+    generateRandomState(): string {
+        const randomState = Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('oauth_state', randomState);
+        return randomState;
+    },
+
+    // Validate state parameter (for CSRF protection)
+    validateOAuthState(state: string): boolean {
+        const savedState = localStorage.getItem('oauth_state');
+        localStorage.removeItem('oauth_state'); // Clear it immediately after checking
+        return state === savedState;
     }
 };
 
