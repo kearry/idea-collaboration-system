@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../store/slices/authSlice';
 
 const DebugAuthCallback = () => {
   const [logs, setLogs] = useState([]);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const addLog = (message) => {
     setLogs(prev => [...prev, `${new Date().toISOString()}: ${message}`]);
@@ -30,7 +33,7 @@ const DebugAuthCallback = () => {
         // Send to your API directly
         addLog("Sending code to backend API");
         
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
         addLog(`API URL: ${apiUrl}`);
         
         try {
@@ -62,6 +65,12 @@ const DebugAuthCallback = () => {
             addLog(`Received token: ${data.token.substring(0, 10)}...`);
             localStorage.setItem('auth_token', data.token);
             
+            // IMPORTANT: This is the fix - dispatch the user data to Redux
+            if (data.user) {
+              addLog("Updating Redux state with user data");
+              dispatch(setUser(data.user));
+            }
+            
             addLog("Authentication successful!");
             setSuccess(true);
             
@@ -83,7 +92,7 @@ const DebugAuthCallback = () => {
     }
 
     handleOAuth();
-  }, [navigate]);
+  }, [navigate, dispatch]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">

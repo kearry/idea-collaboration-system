@@ -34,7 +34,7 @@ const CollaborationIndicators: React.FC<CollaborationIndicatorsProps> = ({
                         {onlineUsers.slice(0, 5).map(user => (
                             <div
                                 key={user.userId}
-                                className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-600"
+                                className="h-8 w-8 rounded-full ring-2 ring-white bg-indigo-100 flex items-center justify-center text-xs font-medium text-indigo-600"
                                 title={user.username}
                             >
                                 {user.username.charAt(0).toUpperCase()}

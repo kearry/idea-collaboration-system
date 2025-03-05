@@ -12,6 +12,8 @@ import argumentRoutes from './routes/argumentRoutes';
 import userRoutes from './routes/userRoutes';
 import { NotFoundError } from './utils/errors';
 import connectDB from './config/database'; // Initialize database connection
+import dotenv from 'dotenv';
+dotenv.config();
 
 const app = express();
 const httpServer = createServer(app);
@@ -38,6 +40,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/debates', debateRoutes);
 app.use('/api/arguments', argumentRoutes);
 app.use('/api/users', userRoutes);
+
+// Add this direct GitHub callback route
+app.get('/api/auth/github/callback', (req, res) => {
+    console.log('GitHub callback route hit directly!', req.query);
+
+    // Import the controller function if needed
+    const { githubAuthCallback } = require('./controllers/authController');
+
+    // Call the controller function
+    return githubAuthCallback(req, res);
+});
 
 // 404 handler
 app.use((req, res, next) => {

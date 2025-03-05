@@ -1,9 +1,26 @@
-// controllers/debateController.ts
 import { Request, Response } from 'express';
 import Debate from '../models/Debate';
 import Argument from '../models/Argument';
-import mongoose from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { NotFoundError, ForbiddenError } from '../utils/errors';
+
+// Helper function for recursive replies
+const getRepliesRecursive = async (parentId: Types.ObjectId): Promise<any[]> => {
+    const replies = await Argument.find({ parentId })
+        .sort({ createdAt: 1 })
+        .populate('author', 'username profileImage');
+
+    const repliesWithNested = await Promise.all(replies.map(async (reply) => {
+        const nestedReplies = await getRepliesRecursive(reply._id);
+        return {
+            ...reply.toObject(),
+            id: reply._id.toString(),
+            replies: nestedReplies,
+        };
+    }));
+
+    return repliesWithNested;
+};
 
 /**
  * Get debates with pagination and filtering
@@ -44,7 +61,10 @@ export const getDebates = async (req: Request, res: Response) => {
     const total = await Debate.countDocuments(query);
 
     res.json({
-        debates,
+        debates: debates.map(debate => ({
+            ...debate.toObject(),
+            id: debate._id.toString()
+        })),
         pagination: {
             total,
             page: Number(page),
@@ -110,12 +130,10 @@ export const getDebateArguments = async (req: Request, res: Response) => {
     // Get replies for each argument
     const argumentsWithReplies = await Promise.all(
         debateArguments.map(async (arg) => {
-            const replies = await Argument.find({ parentId: arg._id })
-                .sort({ createdAt: 1 })
-                .populate('author', 'username profileImage');
-
+            const replies = await getRepliesRecursive(arg._id);
             return {
                 ...arg.toObject(),
+                id: arg._id.toString(),
                 replies
             };
         })

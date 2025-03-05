@@ -80,6 +80,14 @@ export const login = async (req: Request, res: Response) => {
 
     // Check password
     logger.info(`Comparing password for user: ${user.email}`);
+    if (!password) {
+        throw new BadRequestError('Password is required');
+    }
+
+    if (!user.password) {
+        throw new Error('User password not set');
+    }
+
     let isMatch;
     try {
         // Log the raw inputs to comparePassword
@@ -169,6 +177,98 @@ export const githubAuthCallback = async (req: Request, res: Response) => {
             logger.error('No authorization code received');
             return res.status(400).json({ error: 'No authorization code received' });
         }
+
+        // Exchange code for access token
+        const githubClientId = process.env.GITHUB_CLIENT_ID;
+        const githubClientSecret = process.env.GITHUB_CLIENT_SECRET;
+
+        logger.info(`Using GitHub client ID: ${githubClientId}`);
+
+        // GitHub OAuth token endpoint
+        const tokenResponse = await axios.post(
+            'https://github.com/login/oauth/access_token',
+            {
+                client_id: githubClientId,
+                client_secret: githubClientSecret,
+                code
+            },
+            {
+                headers: {
+                    Accept: 'application/json'
+                }
+            }
+        );
+
+        logger.info(`GitHub token response: ${JSON.stringify(tokenResponse.data)}`);
+
+        if (!tokenResponse.data.access_token) {
+            throw new Error('Failed to obtain access token from GitHub');
+        }
+
+        // Get user profile from GitHub
+        const userResponse = await axios.get('https://api.github.com/user', {
+            headers: {
+                Authorization: `token ${tokenResponse.data.access_token}`
+            }
+        });
+
+        logger.info(`GitHub user data received: ${JSON.stringify(userResponse.data)}`);
+
+        // Get user email (might be private)
+        const emailsResponse = await axios.get('https://api.github.com/user/emails', {
+            headers: {
+                Authorization: `token ${tokenResponse.data.access_token}`
+            }
+        });
+
+        const primaryEmail = emailsResponse.data.find((email: any) => email.primary)?.email
+            || emailsResponse.data[0]?.email;
+
+        if (!primaryEmail) {
+            throw new Error('No email address found in GitHub account');
+        }
+
+        // Check if user exists or create new user
+        let user = await User.findOne({ githubId: userResponse.data.id });
+
+        if (!user) {
+            // Also check by email in case user already exists
+            user = await User.findOne({ email: primaryEmail });
+
+            if (user) {
+                // Update existing user with GitHub ID
+                user.githubId = userResponse.data.id.toString();
+                await user.save();
+            } else {
+                // Create new user
+                user = new User({
+                    username: userResponse.data.login,
+                    email: primaryEmail,
+                    githubId: userResponse.data.id.toString(),
+                    profileImage: userResponse.data.avatar_url
+                });
+                await user.save();
+            }
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET || 'your-secret-key',
+            { expiresIn: '7d' }
+        );
+
+        // Return token and user data
+        return res.json({
+            token,
+            user: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                profileImage: user.profileImage
+            }
+        });
 
     } catch (error) {
         logger.error(`GitHub OAuth: Unhandled error: ${(error as Error).message}`);

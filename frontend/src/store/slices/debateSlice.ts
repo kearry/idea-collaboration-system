@@ -65,17 +65,18 @@ export const fetchDebate = createAsyncThunk(
     'debate/fetchDebate',
     async (debateId: string, { rejectWithValue }) => {
         try {
-            const response = await api.get(`/debates/${debateId}`);
+            const debateResponse = await api.get(`/debates/${debateId}`);
+            const argumentsResponse = await api.get(`/debates/${debateId}/arguments`);
 
             // Add viewMode property to debate (will be controlled locally)
             const debate = {
-                ...response.data.debate,
+                ...debateResponse.data.debate,
                 viewMode: 'text' as 'text' | 'visual'
             };
 
             return {
                 debate,
-                arguments: response.data.arguments || []
+                arguments: argumentsResponse.data || []
             };
         } catch (error: any) {
             return rejectWithValue(error.response?.data?.message || 'Failed to fetch debate');

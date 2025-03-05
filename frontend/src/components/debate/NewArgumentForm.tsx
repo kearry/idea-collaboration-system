@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useDispatch } from 'react-redux';
 import { socketService } from '../../services/socketService';
+import { addNotification } from '../../store/slices/notificationSlice';
 
 interface NewArgumentFormProps {
     currentUser: {
@@ -13,12 +15,25 @@ const NewArgumentForm: React.FC<NewArgumentFormProps> = ({ currentUser, debateId
     const [content, setContent] = useState('');
     const [type, setType] = useState<'pro' | 'con'>('pro');
     const [isFormOpen, setIsFormOpen] = useState(false);
+    const dispatch = useDispatch();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!currentUser) {
             // Prompt user to log in
+            return;
+        }
+
+        if (content.trim().length < 10) {
+            dispatch(addNotification({
+                id: Date.now().toString(),
+                type: 'error',
+                title: 'Validation Error',
+                message: 'Argument content must be at least 10 characters long.',
+                timestamp: new Date(),
+                read: false
+            }));
             return;
         }
 
@@ -30,7 +45,9 @@ const NewArgumentForm: React.FC<NewArgumentFormProps> = ({ currentUser, debateId
             };
 
             // Send to server via socket
-            socketService.sendArgument(debateId, argument);
+            await socketService.sendArgument(debateId, argument);
+
+            // Clear form and close it
 
             // Clear form and close it
             setContent('');
@@ -144,12 +161,12 @@ const NewArgumentForm: React.FC<NewArgumentFormProps> = ({ currentUser, debateId
                             <button
                                 type="submit"
                                 className={`px-4 py-2 rounded-md text-sm font-medium text-white ${type === 'pro'
-                                        ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
-                                        : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                                    } focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50`}
-                                disabled={content.trim() === ''}
-                            >
-                                Post Argument
+                                 ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                                 : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                             } focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50`}
+                         disabled={content.trim().length < 10}
+                     >
+                         Post Argument
                             </button>
                         </div>
                     </form>
