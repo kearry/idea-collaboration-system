@@ -58,6 +58,8 @@ export const login = async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     logger.info(`Login attempt for email: ${email}`);
+    logger.info(`Provided password length: ${password ? password.length : 'undefined'}`);
+    logger.info(`Provided password: ${password}`);
 
     // Find user by email
     logger.info(`Finding user by email: ${email}`);
@@ -65,6 +67,9 @@ export const login = async (req: Request, res: Response) => {
     try {
         user = await User.findOne({ email: email }).select('+password').hint({ email: 1 });
         logger.info(`User found: ${user ? user.email : 'No user found'}`);
+        if (user) {
+            logger.info(`Stored password hash: ${user.password}`);
+        }
     } catch (error) {
         logger.error(`Error finding user: ${error}`);
         throw new Error('Failed to login');
@@ -77,8 +82,17 @@ export const login = async (req: Request, res: Response) => {
     logger.info(`Comparing password for user: ${user.email}`);
     let isMatch;
     try {
+        // Log the raw inputs to comparePassword
+        logger.info(`Raw input password: ${password}`);
+        logger.info(`Password type: ${typeof password}`);
+
+        // Try comparing directly with bcrypt for debugging
+        const bcryptMatch = await bcrypt.compare(password, user.password);
+        logger.info(`Direct bcrypt comparison result: ${bcryptMatch}`);
+
+        // Now try the method on the user model
         isMatch = await user.comparePassword(password);
-        logger.info(`Password match: ${isMatch}`);
+        logger.info(`User model comparePassword result: ${isMatch}`);
     } catch (error) {
         logger.error(`Error comparing password: ${error}`);
         throw new Error('Failed to login');
@@ -143,9 +157,6 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
     res.json({ message: 'Google authentication not implemented yet' });
 };
 
-/**
- * GitHub OAuth callback
- */
 /**
  * GitHub OAuth callback
  */

@@ -96,6 +96,8 @@ UserSchema.pre('save', async function (next) {
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
     try {
         // Use bcrypt to compare the provided password with the stored hash
+        logger.info(`Candidate password: ${candidatePassword}`);
+        logger.info(`Stored password hash: ${this.password}`);
         const isMatch = await bcrypt.compare(candidatePassword, this.password);
         logger.info(`Password comparison result: ${isMatch}`);
         return isMatch;

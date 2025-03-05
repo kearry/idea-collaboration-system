@@ -31,37 +31,38 @@ export const seedDatabase = async () => {
         await mongoose.connection.db.dropDatabase();
         logger.info('Database cleared');
 
-        // Create sample users
+        logger.info('Creating sample users...');
         const users = await User.create([
             {
                 username: 'admin',
                 email: 'admin@example.com',
-                password: await bcrypt.hash('admin123'.trim(), 10),
+                password: 'admin123'.trim(),
                 role: 'admin',
                 profileImage: 'https://ui-avatars.com/api/?name=A&background=4f46e5&color=fff'
             },
             {
                 username: 'alex',
                 email: 'alex@example.com',
-                password: await bcrypt.hash('alex123'.trim(), 10),
+                password: 'alex123'.trim(),
                 role: 'user',
                 profileImage: 'https://ui-avatars.com/api/?name=AC&background=10b981&color=fff'
             },
             {
                 username: 'jordan',
                 email: 'jordan@example.com',
-                password: await bcrypt.hash('jordan123'.trim(), 10),
+                password: 'jordan123'.trim(),
                 role: 'user',
                 profileImage: 'https://ui-avatars.com/api/?name=JL&background=ef4444&color=fff'
             },
             {
                 username: 'taylor',
                 email: 'taylor@example.com',
-                password: await bcrypt.hash('taylor123'.trim(), 10),
+                password: 'taylor123'.trim(),
                 role: 'user',
                 profileImage: 'https://ui-avatars.com/api/?name=TW&background=f59e0b&color=fff'
             }
         ]);
+        logger.info('Sample users created.');
 
         // Create sample debates
         const debates = await Debate.create([
