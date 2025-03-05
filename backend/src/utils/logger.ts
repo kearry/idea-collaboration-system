@@ -21,7 +21,8 @@ const consoleTransport = new winston.transports.Console({
 
 // Create logger with the specified configuration
 export const logger = winston.createLogger({
-    level: process.env.LOG_LEVEL || 'info',
+    levels: winston.config.npm.levels,
+    level: process.env.LOG_LEVEL || 'debug',
     format: logFormat,
     defaultMeta: { service: 'idea-collaboration-api' },
     transports: [consoleTransport]
@@ -49,11 +50,11 @@ if (process.env.NODE_ENV === 'production') {
 
 // Override console methods in development for consistent logging
 if (process.env.NODE_ENV !== 'production') {
-    console.log = (...args) => logger.info.call(logger, ...args);
-    console.info = (...args) => logger.info.call(logger, ...args);
-    console.warn = (...args) => logger.warn.call(logger, ...args);
-    console.error = (...args) => logger.error.call(logger, ...args);
-    console.debug = (...args) => logger.debug.call(logger, ...args);
+    console.log = (...args: any[]) => logger.info(args.join(' '));
+    console.info = (...args: any[]) => logger.info(args.join(' '));
+    console.warn = (...args: any[]) => logger.warn({ message: args.join(' ') });
+    console.error = (...args: any[]) => logger.error(args.join(' '));
+    console.debug = (...args: any[]) => logger.debug(args.join(' '));
 }
 
 export default logger;

@@ -1,6 +1,7 @@
 // models/User.ts
 import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { logger } from '../utils/logger';
 
 export interface UserDocument extends Document {
     username: string;
@@ -80,10 +81,11 @@ UserSchema.pre('save', async function (next) {
     try {
         // Generate salt and hash password
         const salt = await bcrypt.genSalt(10);
-        const hash = await bcrypt.hash(user.password, salt);
+        const hash = await bcrypt.hash(user.password.trim(), salt);
 
         // Replace plaintext password with hash
         user.password = hash;
+        logger.info(`Password hash generated: ${hash}`);
         next();
     } catch (error) {
         next(error as Error);
@@ -94,7 +96,9 @@ UserSchema.pre('save', async function (next) {
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
     try {
         // Use bcrypt to compare the provided password with the stored hash
-        return await bcrypt.compare(candidatePassword, this.password);
+        const isMatch = await bcrypt.compare(candidatePassword, this.password);
+        logger.info(`Password comparison result: ${isMatch}`);
+        return isMatch;
     } catch (error) {
         throw error;
     }

@@ -1,4 +1,3 @@
-// App.tsx
 import React, { useEffect } from 'react';
 import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -15,6 +14,7 @@ import RegisterPage from './pages/RegisterPage';
 import CreateDebatePage from './pages/CreateDebatePage';
 import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
+import DebugAuthCallback from './pages/DebugAuthCallback';
 
 // Components
 import LoadingSpinner from './components/common/LoadingSpinner';
@@ -59,8 +59,8 @@ const App: React.FC = () => {
                     user ? <Navigate to="/" replace /> : <RegisterPage />
                 } />
 
-                {/* OAuth callback */}
-                <Route path="/auth/callback" element={<OAuthCallback />} />
+                {/* OAuth callback with DEBUG */}
+                <Route path="/auth/callback" element={<DebugAuthCallback />} />
 
                 {/* Protected routes */}
                 <Route path="/debates/create" element={
@@ -82,75 +82,6 @@ const App: React.FC = () => {
             </Routes>
         </Router>
     );
-};
-
-// OAuth callback handler component
-const OAuthCallback: React.FC = () => {
-    const dispatch = useDispatch();
-    const location = useLocation();
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const handleOAuth = async () => {
-            // Get URL parameters
-            const params = new URLSearchParams(location.search);
-            const token = params.get('token');
-            const state = params.get('state');
-            const errorMsg = params.get('error');
-
-            // Check for error from OAuth provider
-            if (errorMsg) {
-                setError(`Authentication error: ${errorMsg}`);
-                return;
-            }
-
-            // Check if token exists
-            if (!token) {
-                setError('No authentication token received');
-                return;
-            }
-
-            // Validate state parameter to prevent CSRF attacks
-            if (state && !authService.validateOAuthState(state)) {
-                setError('Invalid state parameter, authentication failed');
-                return;
-            }
-
-            try {
-                // Process the OAuth login
-                const user = await authService.handleOAuthRedirect(token);
-                dispatch(setUser(user));
-
-                // Redirect to homepage or a specified redirect URL
-                const redirectUrl = params.get('redirect') || '/';
-                window.location.href = redirectUrl;
-            } catch (error) {
-                console.error('OAuth callback error:', error);
-                setError('Failed to authenticate with the provided token');
-            }
-        };
-
-        handleOAuth();
-    }, [dispatch, location]);
-
-    if (error) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="bg-white p-8 rounded-lg shadow-md max-w-md w-full">
-                    <h2 className="text-xl font-bold text-red-600 mb-4">Authentication Error</h2>
-                    <p className="text-gray-700">{error}</p>
-                    <button
-                        onClick={() => window.location.href = '/login'}
-                        className="mt-6 w-full bg-indigo-600 py-2 px-4 text-white rounded-md hover:bg-indigo-700"
-                    >
-                        Return to Login
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    return <LoadingSpinner />;
 };
 
 export default App;

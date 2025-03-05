@@ -55,4 +55,13 @@ router.get('/google/callback', googleAuthCallback);
  */
 router.get('/github/callback', githubAuthCallback);
 
+/**
+ * @route   GET /api/auth/test
+ * @desc    Test route to verify API is reachable
+ * @access  Public
+ */
+router.get('/test', (req, res) => {
+    res.json({ status: 'API is working' });
+});
+
 export default router;

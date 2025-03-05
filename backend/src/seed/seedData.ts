@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import User from '../models/User';
 import Debate from '../models/Debate';
 import Argument from '../models/Argument';
+import connectDB from './../config/database'; // Import database connection
 import Vote from '../models/Vote';
 
 // Define interfaces for vote creation
@@ -20,6 +21,10 @@ export const seedDatabase = async () => {
     }
 
     try {
+        logger.info('Connecting to database...');
+        await connectDB(); // Await database connection
+        logger.info('Database connected');
+
         logger.info('Starting database seed...');
 
         // Clear existing data
@@ -27,34 +32,32 @@ export const seedDatabase = async () => {
         logger.info('Database cleared');
 
         // Create sample users
-        const passwordHash = await bcrypt.hash('password123', 10);
-
         const users = await User.create([
             {
                 username: 'admin',
                 email: 'admin@example.com',
-                password: passwordHash,
+                password: await bcrypt.hash('admin123'.trim(), 10),
                 role: 'admin',
                 profileImage: 'https://ui-avatars.com/api/?name=A&background=4f46e5&color=fff'
             },
             {
                 username: 'alex',
                 email: 'alex@example.com',
-                password: passwordHash,
+                password: await bcrypt.hash('alex123'.trim(), 10),
                 role: 'user',
                 profileImage: 'https://ui-avatars.com/api/?name=AC&background=10b981&color=fff'
             },
             {
                 username: 'jordan',
                 email: 'jordan@example.com',
-                password: passwordHash,
+                password: await bcrypt.hash('jordan123'.trim(), 10),
                 role: 'user',
                 profileImage: 'https://ui-avatars.com/api/?name=JL&background=ef4444&color=fff'
             },
             {
                 username: 'taylor',
                 email: 'taylor@example.com',
-                password: passwordHash,
+                password: await bcrypt.hash('taylor123'.trim(), 10),
                 role: 'user',
                 profileImage: 'https://ui-avatars.com/api/?name=TW&background=f59e0b&color=fff'
             }
@@ -181,5 +184,10 @@ export const seedDatabase = async () => {
     } catch (error) {
         logger.error(`Seed failed: ${error}`);
         throw error;
+    } finally {
+        await mongoose.disconnect();
+        logger.info('Mongoose connection closed');
     }
 };
+
+seedDatabase();

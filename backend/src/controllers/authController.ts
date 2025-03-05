@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import axios from 'axios';
 import User from '../models/User';
 import { BadRequestError, UnauthorizedError } from '../utils/errors';
+import { logger } from '../utils/logger';
 
 // Helper function to generate JWT
 const generateToken = (userId: string, role: string) => {
@@ -55,14 +57,32 @@ export const register = async (req: Request, res: Response) => {
 export const login = async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
+    logger.info(`Login attempt for email: ${email}`);
+
     // Find user by email
-    const user = await User.findOne({ email }).select('+password');
+    logger.info(`Finding user by email: ${email}`);
+    let user;
+    try {
+        user = await User.findOne({ email: email }).select('+password').hint({ email: 1 });
+        logger.info(`User found: ${user ? user.email : 'No user found'}`);
+    } catch (error) {
+        logger.error(`Error finding user: ${error}`);
+        throw new Error('Failed to login');
+    }
     if (!user) {
         throw new UnauthorizedError('Invalid credentials');
     }
 
     // Check password
-    const isMatch = await user.comparePassword(password);
+    logger.info(`Comparing password for user: ${user.email}`);
+    let isMatch;
+    try {
+        isMatch = await user.comparePassword(password);
+        logger.info(`Password match: ${isMatch}`);
+    } catch (error) {
+        logger.error(`Error comparing password: ${error}`);
+        throw new Error('Failed to login');
+    }
     if (!isMatch) {
         throw new UnauthorizedError('Invalid credentials');
     }
@@ -126,8 +146,21 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
 /**
  * GitHub OAuth callback
  */
+/**
+ * GitHub OAuth callback
+ */
 export const githubAuthCallback = async (req: Request, res: Response) => {
-    // This would be implemented with Passport.js GitHub strategy
-    // For now, we'll just return a placeholder
-    res.json({ message: 'GitHub authentication not implemented yet' });
+    try {
+        logger.info(`GitHub OAuth callback received with code: ${req.query.code ? 'Yes' : 'No'}`);
+        const { code } = req.query;
+
+        if (!code) {
+            logger.error('No authorization code received');
+            return res.status(400).json({ error: 'No authorization code received' });
+        }
+
+    } catch (error) {
+        logger.error(`GitHub OAuth: Unhandled error: ${(error as Error).message}`);
+        return res.status(500).json({ error: 'Authentication failed', details: (error as Error).message });
+    }
 };

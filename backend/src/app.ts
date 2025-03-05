@@ -11,10 +11,12 @@ import debateRoutes from './routes/debateRoutes';
 import argumentRoutes from './routes/argumentRoutes';
 import userRoutes from './routes/userRoutes';
 import { NotFoundError } from './utils/errors';
-import './config/database'; // Initialize database connection
+import connectDB from './config/database'; // Initialize database connection
 
 const app = express();
 const httpServer = createServer(app);
+
+connectDB();
 
 // Initialize Socket.io
 initializeSocketIO(httpServer);
@@ -22,7 +24,9 @@ initializeSocketIO(httpServer);
 // Middleware
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(helmet());
 app.use(compression());
@@ -44,7 +48,7 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // Start server
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
