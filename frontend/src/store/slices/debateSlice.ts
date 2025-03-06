@@ -178,7 +178,8 @@ const debateSlice = createSlice({
             }
         },
 
-        addReply(state, action: PayloadAction<{
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        addReply(_state, _action: PayloadAction<{
             parentId: string;
             content: string;
             type: 'pro' | 'con';
@@ -188,7 +189,8 @@ const debateSlice = createSlice({
             // The actual addition is handled by the addArgument action after the server responds
         },
 
-        voteOnArgument(state, action: PayloadAction<{ argumentId: string, value: 1 | 0 | -1 }>) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        voteOnArgument(_state, _action: PayloadAction<{ argumentId: string, value: 1 | 0 | -1 }>) {
             // This is just a helper action that prepares arguments for socketService
             // The actual update is handled by the updateArgument action after the server responds
         },
