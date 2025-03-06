@@ -11,7 +11,7 @@ import {
 } from '../store/slices/debateSlice';
 import { socketService } from '../services/socketService';
 import ArgumentsList from '../components/debate/ArgumentList';
-import VisualDebateMap from '../components/debate/VisualDebateMap';
+import VisualDebateManager from '../components/debate/VisualDebateManager';
 import NewArgumentForm from '../components/debate/NewArgumentForm';
 import CollaborationIndicators from '../components/debate/CollaborationIndicators';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -165,15 +165,7 @@ const DebatePage: React.FC = () => {
                 ) : (
                     /* Visual Mode */
                     <div className="bg-white p-6 rounded-lg shadow-sm" style={{ minHeight: '500px' }}>
-                        <svg width="100%" height="450" className="border border-gray-200 rounded-lg">
-                            {/* This would be replaced by the D3.js implementation */}
-                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="text-gray-500">
-                                Visual debate map would render here using D3.js
-                            </text>
-                        </svg>
-                        <div className="text-center text-sm text-gray-500 mt-2">
-                            <p>Visual mode is not fully implemented in this demo</p>
-                        </div>
+                        <VisualDebateManager />
                     </div>
                 )}
 

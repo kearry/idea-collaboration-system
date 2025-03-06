@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { api } from '../../services/api';
 import { User } from './authSlice';
+import { VisualizationType } from '../../components/debate/VisualizationSelector';
 
 export interface Argument {
     id: string;
@@ -47,6 +48,7 @@ interface DebateState {
     darguments: Argument[];
     onlineUsers: OnlineUser[];
     typingUsers: TypingUser[];
+    visualizationType: VisualizationType;
     isLoading: boolean;
     error: string | null;
 }
@@ -56,6 +58,7 @@ const initialState: DebateState = {
     darguments: [],
     onlineUsers: [],
     typingUsers: [],
+    visualizationType: 'force-directed',
     isLoading: false,
     error: null
 };
@@ -108,6 +111,10 @@ const debateSlice = createSlice({
             if (state.currentDebate) {
                 state.currentDebate.viewMode = action.payload;
             }
+        },
+
+        setVisualizationType(state, action: PayloadAction<VisualizationType>) {
+            state.visualizationType = action.payload;
         },
 
         addArgument(state, action: PayloadAction<Argument>) {
@@ -253,6 +260,7 @@ const debateSlice = createSlice({
 
 export const {
     toggleViewMode,
+    setVisualizationType,
     addArgument,
     updateArgument,
     deleteArgument,
