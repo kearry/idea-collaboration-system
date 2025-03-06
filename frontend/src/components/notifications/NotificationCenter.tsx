@@ -32,7 +32,7 @@ const NotificationCenter: React.FC = () => {
             try {
                 const audio = new Audio('/notification-sound.mp3');
                 audio.volume = 0.5;
-                audio.play().catch(e => console.log('Sound play prevented by browser policy'));
+                audio.play().catch(error => console.log('Sound play prevented by browser policy', error));
             } catch (error) {
                 console.error('Error playing notification sound', error);
             }

@@ -6,30 +6,14 @@ const ConnectionStatus: React.FC = () => {
     const [showTooltip, setShowTooltip] = useState(false);
     const [reconnectTimer, setReconnectTimer] = useState<number | null>(null);
 
-    useEffect(() => {
-        // Initial status check
-        checkConnectionStatus();
-
-        // Set up interval to periodically check connection status
-        const interval = setInterval(checkConnectionStatus, 5000);
-
-        return () => {
-            clearInterval(interval);
-            if (reconnectTimer) {
-                clearTimeout(reconnectTimer);
-            }
-        };
-    }, []);
-
+    // Function to check connection status
     const checkConnectionStatus = () => {
-        const connectionStatus = socketService.getConnectionStatus
-            ? socketService.getConnectionStatus()
-            : (socketService.isConnected() ? 'connected' : 'disconnected');
-
-        setStatus(connectionStatus);
+        // Just check if connected
+        const isConnected = socketService.isConnected();
+        setStatus(isConnected ? 'connected' : 'disconnected');
 
         // If disconnected, try to reconnect after a delay
-        if (connectionStatus === 'disconnected') {
+        if (!isConnected) {
             if (!reconnectTimer) {
                 const timer = window.setTimeout(() => {
                     tryReconnect();
@@ -45,9 +29,28 @@ const ConnectionStatus: React.FC = () => {
 
     const tryReconnect = () => {
         if (status !== 'connected') {
-            socketService.connect();
+            const token = localStorage.getItem('auth_token');
+            socketService.connect(token || '');
         }
     };
+
+    // Set up interval to check connection
+    useEffect(() => {
+        // Initial status check
+        checkConnectionStatus();
+
+        // Set up interval to periodically check connection status
+        const interval = setInterval(checkConnectionStatus, 5000);
+
+        // Cleanup function
+        return () => {
+            clearInterval(interval);
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Empty dependencies array - we only want this to run once
 
     // Determine color and icon based on status
     const getStatusDisplay = () => {

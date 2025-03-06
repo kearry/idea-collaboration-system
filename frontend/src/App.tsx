@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './store/store';
 import { setUser, logout } from './store/slices/authSlice';
@@ -39,7 +39,8 @@ const App: React.FC = () => {
                     dispatch(setUser(currentUser));
 
                     // Connect to socket with user's token
-                    socketService.connect();
+                    const token = localStorage.getItem('auth_token');
+                    socketService.connect(token || '');
                 } else {
                     dispatch(logout());
                 }
