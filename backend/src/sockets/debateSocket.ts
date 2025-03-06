@@ -4,6 +4,8 @@ import Argument from '../models/Argument';
 import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
 import { socketService } from '../services/socketService';
+import { socketMonitoring } from '../utils/socketMonitoring';
+import Activity from '../models/Activity';
 
 // Define a type for the populated author
 interface PopulatedAuthor {
@@ -43,6 +45,8 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
                     userId: socket.user.id,
                     username: socket.user.username
                 });
+
+                logger.debug(`User ${socket.user.username} left debate ${currentDebateRoom}`);
             }
 
             // Join new debate room
@@ -50,6 +54,27 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
             currentDebateRoom = debateId;
 
             logger.debug(`User ${socket.user.username} joined debate ${debateId}`);
+
+            // Record view activity
+            try {
+                await Activity.create({
+                    user: socket.user.id,
+                    type: 'view_debate',
+                    debate: debateId,
+                    metadata: {
+                        socketId: socket.id
+                    }
+                });
+
+                // Increment view count
+                await Debate.findByIdAndUpdate(
+                    debateId,
+                    { $inc: { viewCount: 1 } }
+                );
+            } catch (activityError) {
+                logger.error(`Error recording view activity: ${activityError}`);
+                // Non-critical error, continue processing
+            }
 
             // Notify other users in the room
             socket.to(debateId).emit('user_joined', {
@@ -68,6 +93,9 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
 
             // Send active users list to the joined user
             socket.emit('active_users', { users: usersInRoom });
+
+            // Track room joining in monitoring
+            socketMonitoring.trackRoomJoin(socket.id, debateId);
         } catch (error) {
             logger.error(`Error joining debate: ${error}`);
             socket.emit('error', { message: 'Failed to join debate' });
@@ -100,6 +128,13 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
                 return;
             }
 
+            // Check if debate exists
+            const debate = await Debate.findById(debateId);
+            if (!debate) {
+                socket.emit('error', { message: 'Debate not found' });
+                return;
+            }
+
             // Create the argument in the database
             const newArgument = new Argument({
                 debate: debateId,
@@ -116,6 +151,43 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
                 path: 'author',
                 select: 'username profileImage'
             });
+
+            // Update user's arguments array
+            await mongoose.model('User').findByIdAndUpdate(
+                socket.user.id,
+                { $push: { arguments: newArgument._id } }
+            );
+
+            // Update debate participation count if this is a new participant
+            const hasParticipated = await Argument.exists({
+                debate: debateId,
+                author: socket.user.id,
+                _id: { $ne: newArgument._id }
+            });
+
+            if (!hasParticipated) {
+                await Debate.findByIdAndUpdate(
+                    debateId,
+                    { $inc: { participantCount: 1 } }
+                );
+            }
+
+            // Record activity
+            try {
+                await Activity.create({
+                    user: socket.user.id,
+                    type: argument.parentId ? 'reply' : 'create_argument',
+                    debate: debateId,
+                    argument: newArgument._id,
+                    metadata: {
+                        argumentType: argument.type,
+                        parentId: argument.parentId || null
+                    }
+                });
+            } catch (activityError) {
+                logger.error(`Error recording argument activity: ${activityError}`);
+                // Non-critical error, continue processing
+            }
 
             // Format the response
             const formattedArgument = {
@@ -137,7 +209,30 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
                 argument: formattedArgument
             });
 
+            // If this is a reply to someone else's argument, send notification to the parent author
+            if (argument.parentId) {
+                const parentArg = await Argument.findById(argument.parentId);
+                if (parentArg && parentArg.author.toString() !== socket.user.id) {
+                    const notification = {
+                        id: new mongoose.Types.ObjectId().toString(),
+                        type: 'info',
+                        title: 'New Reply',
+                        message: `${socket.user.username} replied to your argument`,
+                        timestamp: new Date(),
+                        read: false,
+                        debateId,
+                        argumentId: parentArg._id.toString()
+                    };
+
+                    // Send notification to parent argument author
+                    socketService.emitToUser(parentArg.author.toString(), 'notification', notification);
+                }
+            }
+
             logger.debug(`New argument created in debate ${debateId} by ${socket.user.username}`);
+
+            // Track event in monitoring
+            socketMonitoring.trackMessageSent(socket.id, 'new_argument');
         } catch (error) {
             logger.error(`Error creating argument: ${error}`);
             socket.emit('error', { message: 'Failed to create argument' });
@@ -172,7 +267,49 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
                     data: { votes: result.newVoteCount }
                 });
 
-                logger.debug(`Vote processed on argument ${argumentId} by ${socket.user.username}`);
+                // Record activity
+                try {
+                    await Activity.create({
+                        user: socket.user.id,
+                        type: 'vote',
+                        debate: debateId,
+                        argument: argumentId,
+                        metadata: {
+                            value
+                        }
+                    });
+                } catch (activityError) {
+                    logger.error(`Error recording vote activity: ${activityError}`);
+                    // Non-critical error, continue processing
+                }
+
+                // If this is a significant vote (first vote or changed direction), notify argument author
+                if (value !== 0) {
+                    const argument = await Argument.findById(argumentId);
+                    if (argument && argument.author.toString() !== socket.user.id) {
+                        // Only send notifications for significant vote changes to avoid spam
+                        if (result.isFirstVote || result.changedDirection) {
+                            const notification = {
+                                id: new mongoose.Types.ObjectId().toString(),
+                                type: 'info',
+                                title: value > 0 ? 'Upvote' : 'Downvote',
+                                message: `${socket.user.username} ${value > 0 ? 'upvoted' : 'downvoted'} your argument`,
+                                timestamp: new Date(),
+                                read: false,
+                                debateId,
+                                argumentId
+                            };
+
+                            // Send notification to argument author
+                            socketService.emitToUser(argument.author.toString(), 'notification', notification);
+                        }
+                    }
+                }
+
+                logger.debug(`Vote processed on argument ${argumentId} by ${socket.user.username}: ${value}`);
+
+                // Track event in monitoring
+                socketMonitoring.trackMessageSent(socket.id, 'vote');
             }
         } catch (error) {
             logger.error(`Error voting on argument: ${error}`);
@@ -188,6 +325,9 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
             userId: socket.user.id,
             username: socket.user.username
         });
+
+        // Track event
+        socketMonitoring.trackMessageSent(socket.id, 'typing_indicator');
     });
 
     socket.on('typing_end', ({ debateId }) => {
@@ -196,6 +336,27 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
         socket.to(debateId).emit('user_stopped_typing', {
             userId: socket.user.id
         });
+    });
+
+    // Get active users for a debate
+    socket.on('get_active_users', async ({ debateId }) => {
+        if (!socket.user || !debateId) return;
+
+        try {
+            const sockets = await io.in(debateId).fetchSockets();
+            const users = sockets
+                .filter(s => s.data && s.data.user)
+                .map(s => ({
+                    userId: s.data.user.id,
+                    username: s.data.user.username
+                }));
+
+            // Send active users list
+            socket.emit('active_users', { users });
+        } catch (error) {
+            logger.error(`Error getting active users: ${error}`);
+            socket.emit('error', { message: 'Failed to get active users' });
+        }
     });
 
     // Leave debate
@@ -213,6 +374,9 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
         });
 
         logger.debug(`User ${socket.user.username} left debate ${debateId}`);
+
+        // Track room leave in monitoring
+        socketMonitoring.trackRoomLeave(socket.id, debateId);
     });
 
     // Handle disconnect to clean up rooms
@@ -224,6 +388,9 @@ export const setupDebateHandlers = (io: Server, socket: Socket) => {
             });
 
             logger.debug(`User ${socket.user.username} disconnected from debate ${currentDebateRoom}`);
+
+            // Track room leave in monitoring
+            socketMonitoring.trackRoomLeave(socket.id, currentDebateRoom);
         }
     });
 };

@@ -1,10 +1,13 @@
 import React, { useEffect } from 'react';
-import { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from './store/store';
 import { setUser, logout } from './store/slices/authSlice';
 import authService from './services/authService';
+import { socketService } from './services/socketService';
+
+// Layouts
+import MainLayout from './components/layouts/MainLayout';
 
 // Pages
 import HomePage from './pages/HomePage';
@@ -20,6 +23,9 @@ import DebugAuthCallback from './pages/DebugAuthCallback';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import PrivateRoute from './components/common/PrivateRoute';
 
+// Toast notifications
+import { Toaster } from 'react-hot-toast';
+
 const App: React.FC = () => {
     const dispatch = useDispatch();
     const { user, isLoading } = useSelector((state: RootState) => state.auth);
@@ -31,6 +37,9 @@ const App: React.FC = () => {
                 const currentUser = await authService.getCurrentUser();
                 if (currentUser) {
                     dispatch(setUser(currentUser));
+
+                    // Connect to socket with user's token
+                    socketService.connect();
                 } else {
                     dispatch(logout());
                 }
@@ -40,6 +49,11 @@ const App: React.FC = () => {
         };
 
         initializeAuth();
+
+        // Clean up socket connection on unmount
+        return () => {
+            socketService.disconnect();
+        };
     }, [dispatch]);
 
     // Show loading spinner while checking authentication
@@ -49,9 +63,35 @@ const App: React.FC = () => {
 
     return (
         <Router>
+            <Toaster
+                position="top-right"
+                toastOptions={{
+                    duration: 4000,
+                    style: {
+                        background: '#fff',
+                        color: '#363636',
+                        boxShadow: '0 3px 10px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '8px',
+                        padding: '16px'
+                    },
+                    success: {
+                        iconTheme: {
+                            primary: '#10B981',
+                            secondary: '#fff',
+                        },
+                    },
+                    error: {
+                        iconTheme: {
+                            primary: '#EF4444',
+                            secondary: '#fff',
+                        },
+                    },
+                }}
+            />
+
             <Routes>
                 {/* Public routes */}
-                <Route path="/" element={<HomePage />} />
+                <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
                 <Route path="/login" element={
                     user ? <Navigate to="/" replace /> : <LoginPage />
                 } />
@@ -65,20 +105,22 @@ const App: React.FC = () => {
                 {/* Protected routes */}
                 <Route path="/debates/create" element={
                     <PrivateRoute>
-                        <CreateDebatePage />
+                        <MainLayout><CreateDebatePage /></MainLayout>
                     </PrivateRoute>
                 } />
                 <Route path="/profile" element={
                     <PrivateRoute>
-                        <ProfilePage />
+                        <MainLayout><ProfilePage /></MainLayout>
                     </PrivateRoute>
                 } />
 
                 {/* Partially protected routes */}
-                <Route path="/debates/:id" element={<DebatePage />} />
+                <Route path="/debates/:id" element={
+                    <MainLayout><DebatePage /></MainLayout>
+                } />
 
                 {/* Catch-all route */}
-                <Route path="*" element={<NotFoundPage />} />
+                <Route path="*" element={<MainLayout><NotFoundPage /></MainLayout>} />
             </Routes>
         </Router>
     );
