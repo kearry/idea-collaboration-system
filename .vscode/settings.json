@@ -1,18 +1,19 @@
 {
   // Disable CSS validation to prevent Tailwind warnings
   "css.validate": false,
-  
+
   // Add Tailwind support for TypeScript/React files
   "tailwindCSS.includeLanguages": {
     "typescript": "javascript",
     "typescriptreact": "javascript"
   },
-  
+
   // Enable suggestions in string templates (for CSS class names)
   "editor.quickSuggestions": {
     "strings": true
   },
-  
+
   // Disable the warning for "inline-block" and "flex" conflicts in Tailwind
-  "tailwindCSS.lint.conflictingClassGroup": "ignore"
+  "tailwindCSS.lint.conflictingClassGroup": "ignore",
+  "docker.make-runbook.openai-base": "Ollama"
 }
